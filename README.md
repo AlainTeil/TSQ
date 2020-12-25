@@ -30,8 +30,8 @@ the ThreadSanitizer data race detector. To this end, an option not enabled
 by default is defined within the CMakeLists.txt file. You can turn it on
 by typing this at your shell prompt:
 
-mkdir -p build
-cd build
-cmake -DENABLE_TSAN=ON ..
-cmake --build .
-cmake --build . --target test
+mkdir -p build  
+cd build  
+cmake -DENABLE_TSAN=ON ..  
+cmake --build .  
+cmake --build . --target test  
