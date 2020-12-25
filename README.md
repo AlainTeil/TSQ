@@ -12,11 +12,26 @@ to the following requirements:
   * This is a templated class.
   * Elements are extracted in a first in first out order.
   * Class instances are initialized with a maximum capacity.
-  * An add method inserts an element to the queue and will block the caller
+  * A tryAdd method tries to insert an element to the queue and returns
+    true in case the queue is not full or returns false otherwise.
+  * A waitAdd method inserts an element to the queue and will block the caller
     in case the queue is full until space becomes available.
-  * A remove method extracts an element from the queue and will block the
+  * A tryRemove method tries to extract an element from the queue and returns
+    true in case the queue is not empty or returns false otherwise.
+  * A waitRemove method extracts an element from the queue and will block the
     caller in case the queue is empty until an element becomes available.
-  * A shutdown method enables to close the queue and future calls to add
-    or remove will throw a ShutdownException.
+  * A shutdown method enables to close the queue and future calls to tryAdd,
+    waitAdd, tryRemove, waitRemove will throw a ShutdownException.
   * A clear method enables to remove elements still present within the
     queue after a call to the shutdown method.
+
+In order to test the ThreadSafeContainer class, it is possible to rely on
+the ThreadSanitizer data race detector. To this end, an option not enabled
+by default is defined within the CMakeLists.txt file. You can turn it on
+by typing this at your shell prompt:
+
+mkdir -p build
+cd build
+cmake -DENABLE_TSAN=ON ..
+cmake --build .
+cmake --build . --target test

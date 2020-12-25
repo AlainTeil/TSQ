@@ -8,19 +8,19 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Threads REQUIRED)
 
-set(SourceFiles ThreadSafeContainer.cpp)
-add_executable(ThreadSafeContainer ${SourceFiles})
+set(SourceFiles TSCTest.cpp)
+add_executable(TSCTest ${SourceFiles})
 
-target_link_libraries(ThreadSafeContainer PUBLIC Threads::Threads)
+target_link_libraries(TSCTest PUBLIC Threads::Threads)
 
 option(ENABLE_TSAN "Enable ThreadSanitizer" OFF)
 
 if(ENABLE_TSAN)
     if(CMAKE_CXX_COMPILER_ID MATCHES GNU)
         message(STATUS "ThreadSanitizer enabled")
-        target_compile_options(ThreadSafeContainer PUBLIC
+        target_compile_options(TSCTest PUBLIC
             -g -O1 -fsanitize=thread -fno-omit-frame-pointer -fPIC)
-        target_link_libraries(ThreadSafeContainer PUBLIC tsan)
+        target_link_libraries(TSCTest PUBLIC tsan)
     else()
         message(WARNING "ThreadSanitizer not supported for this compiler")
     endif()
@@ -28,5 +28,4 @@ endif()
 
 enable_testing()
 
-add_test(NAME ThreadSafeContainer
-    COMMAND $<TARGET_FILE:ThreadSafeContainer>)
+add_test(NAME TSCTest COMMAND $<TARGET_FILE:TSCTest>)
