@@ -4,11 +4,17 @@
 #include <condition_variable>
 #include <queue>
 #include <exception>
+#include <string>
 
 class ShutdownException: public std::exception {
-    const char* what() const noexcept {
-        return "shutdown exception";
-    }
+    public:
+        ShutdownException(const std::string& message)
+            : message{message} {}
+        virtual const char* what() const noexcept override {
+            return message.c_str();
+        }
+    private:
+        std::string message;
 };
 
 template <typename T>

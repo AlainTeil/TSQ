@@ -18,7 +18,7 @@ bool ThreadSafeContainer<T>::tryAdd(const T& item) {
     std::lock_guard<std::mutex> lock{mtx};
 
     if (!inUse) {
-        throw ShutdownException();
+        throw ShutdownException("shutdown");
     }
 
     if (fifo.size() == maxSize) {
@@ -51,7 +51,7 @@ void ThreadSafeContainer<T>::waitAdd(const T& item) {
     }
 
     if (!inUse) {
-        throw ShutdownException();
+        throw ShutdownException("shutdown");
     }
 
     fifo.push(item);
@@ -69,7 +69,7 @@ bool ThreadSafeContainer<T>::tryRemove(T& item) {
     std::lock_guard<std::mutex> lock{mtx};
 
     if (!inUse) {
-        throw ShutdownException();
+        throw ShutdownException("shutdown");
     }
 
     if (fifo.empty()) {
@@ -103,7 +103,7 @@ void ThreadSafeContainer<T>::waitRemove(T& item) {
     }
 
     if (!inUse) {
-        throw ShutdownException();
+        throw ShutdownException("shutdown");
     }
 
     item = fifo.front();

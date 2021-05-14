@@ -69,24 +69,38 @@ int main() {
     randomize();
     exc.clear();
 
-    for (int i = 0; i < NB_WRITER_THREADS; ++i) {
-        writerThreads.push_back(std::thread(writerFunc, std::ref(mtq),
-                    pick(WRITE_LOWER_BOUND, WRITE_UPPER_BOUND)));
-    }
+    try {
+        for (int i = 0; i < NB_WRITER_THREADS; ++i) {
+            writerThreads.push_back(std::thread(writerFunc, std::ref(mtq),
+                        pick(WRITE_LOWER_BOUND, WRITE_UPPER_BOUND)));
+        }
 
-    for (int i = 0; i < NB_READER_THREADS; ++i) {
-        readerThreads.push_back(std::thread(readerFunc, std::ref(mtq),
-                    pick(READ_LOWER_BOUND, READ_UPPER_BOUND)));
-    }
+        for (int i = 0; i < NB_READER_THREADS; ++i) {
+            readerThreads.push_back(std::thread(readerFunc, std::ref(mtq),
+                        pick(READ_LOWER_BOUND, READ_UPPER_BOUND)));
+        }
 
-    std::this_thread::sleep_for(std::chrono::seconds(SLEEP));
-    mtq.shutdown();
+        std::this_thread::sleep_for(std::chrono::seconds(SLEEP));
+        mtq.shutdown();
 
-    for (auto &t : writerThreads) {
-        t.join();
+        for (auto &t : writerThreads) {
+            t.join();
+        }
+        for (auto &t : readerThreads) {
+            t.join();
+        }
     }
-    for (auto &t : readerThreads) {
-        t.join();
+    catch (const std::bad_alloc& e) {
+        std::cerr << "bad_alloc caught in main: " <<
+            e.what() << std::endl;
+    }
+    catch (const std::exception& e) {
+        std::cerr << "exception caught in main: " <<
+            e.what() << std::endl;
+    }
+    catch (...) {
+        std::cerr << "default exception caught in main" <<
+            std::endl;
     }
 
     for (auto &e : exc) {
@@ -96,7 +110,7 @@ int main() {
             }
         }
         catch (const std::exception& e) {
-            std::cerr << "Thread exited with exception : " <<
+            std::cerr << "thread exited with exception : " <<
                 e.what() << std::endl;
         }
     }
