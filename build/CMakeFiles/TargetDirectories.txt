@@ -1,0 +1,4 @@
+/home/runner/work/TSQ/TSQ/build/CMakeFiles/TSCTest.dir
+/home/runner/work/TSQ/TSQ/build/CMakeFiles/test.dir
+/home/runner/work/TSQ/TSQ/build/CMakeFiles/edit_cache.dir
+/home/runner/work/TSQ/TSQ/build/CMakeFiles/rebuild_cache.dir

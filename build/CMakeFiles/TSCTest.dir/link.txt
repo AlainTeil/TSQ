@@ -1,0 +1,1 @@
+/usr/bin/c++ -Wl,--dependency-file=CMakeFiles/TSCTest.dir/link.d CMakeFiles/TSCTest.dir/TSCTest.cpp.o -o TSCTest
