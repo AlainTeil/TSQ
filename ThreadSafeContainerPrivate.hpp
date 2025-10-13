@@ -1,5 +1,26 @@
 #pragma once
 
+/**
+ * @brief ThreadSafeContainer is a thread-safe, bounded FIFO queue.
+ *
+ * This container provides synchronized access for multiple producer and
+ * consumer threads. It supports blocking and non-blocking operations for adding
+ * and removing elements, as well as shutdown and clear operations for safe
+ * resource management.
+ *
+ * @tparam T The type of elements stored in the container.
+ *
+ * @note All methods are thread-safe unless otherwise specified.
+ *
+ * @section Usage
+ * - Use tryAdd() and tryRemove() for non-blocking operations.
+ * - Use waitAdd() and waitRemove() for blocking operations.
+ * - Call shutdown() to prevent further operations and unblock waiting threads.
+ * - Call clear() to remove all elements after shutdown.
+ *
+ * @section Exception
+ * Throws ShutdownException if operations are attempted after shutdown.
+ */
 namespace TSC {
 template <typename T>
 ThreadSafeContainer<T>::ThreadSafeContainer(
@@ -41,12 +62,12 @@ void ThreadSafeContainer<T>::waitAdd(const T &item) {
 
   // Waits using a condition variable until the queue
   // is no longer full.
-  notFull.wait(lock, [this] { return !((fifo.size() == maxSize) && inUse); });
+  notFull.wait(lock, [this] { return (fifo.size() < maxSize) || !inUse; });
 
+  // This check is to ensure that if shutdown() was called while the queue was
+  // full, any writers blocked on notFull are unblocked. This is a safeguard in
+  // case shutdown is called while the queue is full and threads are waiting.
   if ((fifo.size() == maxSize) && !inUse) {
-    // Even if the queue is not in use, we need to
-    // signal to potential writers blocked on
-    // a full queue.
     notFull.notify_all();
   }
 
@@ -92,12 +113,11 @@ void ThreadSafeContainer<T>::waitRemove(T &item) {
 
   // Waits using a condition variable until the queue
   // is no longer empty.
-  notEmpty.wait(lock, [this] { return !(fifo.empty() && inUse); });
+  notEmpty.wait(lock, [this] { return !fifo.empty() || !inUse; });
 
+  // If the queue is empty and not in use, notify all to ensure any remaining
+  // waiters are unblocked.
   if (fifo.empty() && !inUse) {
-    // Even if the queue is not in use, we need to
-    // signal to potential readers blocked on
-    // an empty queue.
     notEmpty.notify_all();
   }
 
@@ -145,22 +165,18 @@ void ThreadSafeContainer<T>::clear() {
 template <typename T>
 typename std::queue<T>::size_type ThreadSafeContainer<T>::size() const {
   std::lock_guard<std::mutex> lock{mtx};
-  typename std::queue<T>::size_type size = fifo.size();
-
-  return size;
+  return fifo.size();
 }
 
 template <typename T>
 bool ThreadSafeContainer<T>::empty() const {
   std::lock_guard<std::mutex> lock{mtx};
-
   return fifo.empty();
 }
 
 template <typename T>
 bool ThreadSafeContainer<T>::full() const {
   std::lock_guard<std::mutex> lock{mtx};
-
-  return (fifo.size() == maxSize);
+  return fifo.size() == maxSize;
 }
 }  // namespace TSC

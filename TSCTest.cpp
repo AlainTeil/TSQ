@@ -61,6 +61,30 @@ void readerFunc(TSC::ThreadSafeContainer<int> &mtq, int ms) {
   }
 }
 
+/**
+ * @brief Entry point for testing the ThreadSafeContainer functionality.
+ *
+ * This function initializes a thread-safe container and launches multiple
+ * writer and reader threads to perform concurrent operations on the container.
+ * It handles exceptions thrown by threads and ensures all threads are properly
+ * joined before exiting. After all operations, it clears the container and
+ * asserts that it is empty.
+ *
+ * Steps performed:
+ * 1. Initializes a ThreadSafeContainer with a predefined number of items.
+ * 2. Launches NB_WRITER_THREADS writer threads, each performing write
+ * operations with random bounds.
+ * 3. Launches NB_READER_THREADS reader threads, each performing read operations
+ * with random bounds.
+ * 4. Allows threads to operate for a specified duration (SLEEP), then signals
+ * shutdown to the container.
+ * 5. Joins all writer and reader threads.
+ * 6. Catches and reports any exceptions thrown during thread execution.
+ * 7. Rethrows and reports exceptions captured from threads.
+ * 8. Clears the container and asserts it is empty before exiting.
+ *
+ * @return int Returns 0 on successful execution.
+ */
 int main() {
   TSC::ThreadSafeContainer<int> mtq{NB_ITEMS};
   std::vector<std::thread> writerThreads, readerThreads;
