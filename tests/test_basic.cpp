@@ -1,5 +1,4 @@
 #include <catch2/catch_test_macros.hpp>
-
 #include <stdexcept>
 #include <tsc/thread_safe_container.hpp>
 
@@ -32,16 +31,20 @@ TEST_CASE("tryAdd / tryRemove round-trip preserves FIFO order",
   REQUIRE_FALSE(q.tryAdd(4));
 
   int v = 0;
-  REQUIRE(q.tryRemove(v)); REQUIRE(v == 1);
-  REQUIRE(q.tryRemove(v)); REQUIRE(v == 2);
-  REQUIRE(q.tryRemove(v)); REQUIRE(v == 3);
+  REQUIRE(q.tryRemove(v));
+  REQUIRE(v == 1);
+  REQUIRE(q.tryRemove(v));
+  REQUIRE(v == 2);
+  REQUIRE(q.tryRemove(v));
+  REQUIRE(v == 3);
   REQUIRE(q.empty());
 
   // tryRemove on empty active queue returns false, no exception.
   REQUIRE_FALSE(q.tryRemove(v));
 }
 
-TEST_CASE("optional-returning tryRemove on empty active queue", "[basic][optional]") {
+TEST_CASE("optional-returning tryRemove on empty active queue",
+          "[basic][optional]") {
   ThreadSafeContainer<int> q{2};
   REQUIRE_FALSE(q.tryRemove().has_value());
   REQUIRE(q.tryAdd(42));

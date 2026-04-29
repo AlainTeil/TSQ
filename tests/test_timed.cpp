@@ -1,7 +1,6 @@
+#include <catch2/catch_test_macros.hpp>
 #include <chrono>
 #include <thread>
-
-#include <catch2/catch_test_macros.hpp>
 #include <tsc/thread_safe_container.hpp>
 
 using namespace std::chrono_literals;

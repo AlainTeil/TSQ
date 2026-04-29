@@ -83,6 +83,33 @@ cmake --build build-tsan -j && ctest --test-dir build-tsan --output-on-failure
 > invoke a test binary directly, run it through `setarch -R` yourself,
 > e.g. `setarch -R ./build-tsan/tests/tsc_unit_tests`.
 
+## Code formatting
+
+The repository ships a `.clang-format` file (LLVM/Google-derived, 80-col).
+CI enforces it via `clang-format --dry-run --Werror`, so any non-conforming
+change will fail the `format-check` job.
+
+Two equivalent ways to apply formatting locally before committing:
+
+```bash
+# 1. Via the CMake target (uses whichever clang-format is on PATH)
+cmake --build build --target format
+
+# 2. Directly, matching the exact command CI runs
+find lib/include app/src tests examples \
+     -type f \( -name '*.hpp' -o -name '*.cpp' -o -name '*.h' \) -print0 \
+     | xargs -0 clang-format -i
+
+# Dry-run check (no edits, exits non-zero if anything would change)
+find lib/include app/src tests examples \
+     -type f \( -name '*.hpp' -o -name '*.cpp' -o -name '*.h' \) -print0 \
+     | xargs -0 clang-format --dry-run --Werror
+```
+
+CI uses the `clang-format` shipped with `ubuntu-24.04` (currently 18.x); for
+byte-identical results locally, install the same major version
+(`sudo apt-get install clang-format` on Ubuntu 24.04).
+
 ## Minimal example
 
 ```cpp

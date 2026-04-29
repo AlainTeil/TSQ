@@ -2,9 +2,8 @@
 // std::unique_ptr). The original code would fail to compile for these
 // because tryRemove(T&) used copy-assignment.
 
-#include <memory>
-
 #include <catch2/catch_test_macros.hpp>
+#include <memory>
 #include <tsc/thread_safe_container.hpp>
 
 TEST_CASE("move-only type round-trip via rvalue add and optional remove",

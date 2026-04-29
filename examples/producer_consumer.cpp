@@ -7,7 +7,6 @@
 #include <iostream>
 #include <string>
 #include <thread>
-
 #include <tsc/thread_safe_container.hpp>
 
 int main() {
@@ -17,7 +16,7 @@ int main() {
     for (int i = 0; i < 10; ++i) {
       queue.waitAdd("msg-" + std::to_string(i));
     }
-    queue.shutdown();   // Consumers may still drain everything pushed above.
+    queue.shutdown();  // Consumers may still drain everything pushed above.
   });
 
   std::thread consumer([&] {

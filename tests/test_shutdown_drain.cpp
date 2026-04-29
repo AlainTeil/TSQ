@@ -4,10 +4,9 @@
 // the container is inactive.
 
 #include <atomic>
+#include <catch2/catch_test_macros.hpp>
 #include <chrono>
 #include <thread>
-
-#include <catch2/catch_test_macros.hpp>
 #include <tsc/thread_safe_container.hpp>
 
 using namespace std::chrono_literals;
@@ -81,8 +80,9 @@ TEST_CASE("shutdown unblocks waiting consumers immediately",
   ThreadSafeContainer<int> q{4};
 
   std::thread consumer([&] {
-    auto v = q.waitRemove();   // Blocks: queue is empty, container active.
-    REQUIRE_FALSE(v.has_value());  // After shutdown of empty queue, returns nullopt.
+    auto v = q.waitRemove();  // Blocks: queue is empty, container active.
+    REQUIRE_FALSE(
+        v.has_value());  // After shutdown of empty queue, returns nullopt.
   });
 
   std::this_thread::sleep_for(20ms);
@@ -97,8 +97,11 @@ TEST_CASE("shutdown unblocks waiting producers immediately",
 
   std::atomic<bool> threw{false};
   std::thread producer([&] {
-    try { q.waitAdd(2); }
-    catch (const ShutdownException&) { threw = true; }
+    try {
+      q.waitAdd(2);
+    } catch (const ShutdownException&) {
+      threw = true;
+    }
   });
 
   std::this_thread::sleep_for(20ms);

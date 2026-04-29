@@ -22,25 +22,24 @@
 #include <cstdlib>
 #include <iostream>
 #include <thread>
+#include <tsc/detail/random_generator.hpp>
+#include <tsc/thread_safe_container.hpp>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
-
-#include <tsc/detail/random_generator.hpp>
-#include <tsc/thread_safe_container.hpp>
 
 namespace {
 
 namespace cfg {
 constexpr std::size_t kWriterThreads = 19;
 constexpr std::size_t kReaderThreads = 19;
-constexpr auto        kTestDuration  = std::chrono::seconds{3};
+constexpr auto kTestDuration = std::chrono::seconds{3};
 constexpr std::size_t kWriteAttempts = 9;
-constexpr int         kWriteDelayMin = 100;
-constexpr int         kWriteDelayMax = 200;
-constexpr int         kReadDelayMin  = 5;
-constexpr int         kReadDelayMax  = 20;
+constexpr int kWriteDelayMin = 100;
+constexpr int kWriteDelayMax = 200;
+constexpr int kReadDelayMin = 5;
+constexpr int kReadDelayMax = 20;
 constexpr std::size_t kQueueCapacity = 70;
 }  // namespace cfg
 
@@ -50,8 +49,12 @@ constexpr std::size_t kQueueCapacity = 70;
 constexpr std::uint64_t encode(std::uint32_t producer, std::uint32_t seq) {
   return (static_cast<std::uint64_t>(producer) << 32) | seq;
 }
-constexpr std::uint32_t decode_producer(std::uint64_t v) { return static_cast<std::uint32_t>(v >> 32); }
-constexpr std::uint32_t decode_seq(std::uint64_t v)      { return static_cast<std::uint32_t>(v & 0xFFFFFFFFu); }
+constexpr std::uint32_t decode_producer(std::uint64_t v) {
+  return static_cast<std::uint32_t>(v >> 32);
+}
+constexpr std::uint32_t decode_seq(std::uint64_t v) {
+  return static_cast<std::uint32_t>(v & 0xFFFFFFFFu);
+}
 
 struct Results {
   std::chrono::milliseconds duration{};
@@ -60,8 +63,8 @@ struct Results {
   std::size_t writer_exceptions{0};
   std::size_t reader_exceptions{0};
   std::size_t final_size{0};
-  bool        no_duplicates{true};
-  bool        fifo_per_producer{true};
+  bool no_duplicates{true};
+  bool fifo_per_producer{true};
 };
 
 class StressTest {
@@ -90,8 +93,11 @@ class StressTest {
     writers.reserve(cfg::kWriterThreads);
     for (std::uint32_t i = 0; i < cfg::kWriterThreads; ++i) {
       writers.emplace_back([this, i]() noexcept {
-        try { writerTask(i); }
-        catch (...) { writer_exceptions_.fetch_add(1, std::memory_order_relaxed); }
+        try {
+          writerTask(i);
+        } catch (...) {
+          writer_exceptions_.fetch_add(1, std::memory_order_relaxed);
+        }
       });
     }
 
@@ -99,8 +105,11 @@ class StressTest {
     readers.reserve(cfg::kReaderThreads);
     for (std::uint32_t i = 0; i < cfg::kReaderThreads; ++i) {
       readers.emplace_back([this, i]() noexcept {
-        try { readerTask(i); }
-        catch (...) { reader_exceptions_.fetch_add(1, std::memory_order_relaxed); }
+        try {
+          readerTask(i);
+        } catch (...) {
+          reader_exceptions_.fetch_add(1, std::memory_order_relaxed);
+        }
       });
     }
 
@@ -119,7 +128,8 @@ class StressTest {
     const auto t_end = std::chrono::steady_clock::now();
 
     Results r;
-    r.duration = std::chrono::duration_cast<std::chrono::milliseconds>(t_end - t_start);
+    r.duration =
+        std::chrono::duration_cast<std::chrono::milliseconds>(t_end - t_start);
     r.writer_exceptions = writer_exceptions_.load();
     r.reader_exceptions = reader_exceptions_.load();
     for (auto c : writer_counts_) r.items_written += c;
@@ -171,7 +181,8 @@ class StressTest {
 
  private:
   void writerTask(std::uint32_t producer_id) {
-    const int delay_ms = tsc::detail::random::uniform(cfg::kWriteDelayMin, cfg::kWriteDelayMax);
+    const int delay_ms =
+        tsc::detail::random::uniform(cfg::kWriteDelayMin, cfg::kWriteDelayMax);
     for (std::uint32_t i = 0; i < cfg::kWriteAttempts; ++i) {
       if (!keep_writing_.load(std::memory_order_acquire)) break;
       const std::uint64_t value = encode(producer_id, i);
@@ -184,7 +195,8 @@ class StressTest {
   }
 
   void readerTask(std::uint32_t reader_id) {
-    const int delay_ms = tsc::detail::random::uniform(cfg::kReadDelayMin, cfg::kReadDelayMax);
+    const int delay_ms =
+        tsc::detail::random::uniform(cfg::kReadDelayMin, cfg::kReadDelayMax);
     auto& bucket = reader_buckets_[reader_id];
     while (true) {
       auto opt = container_.waitRemove();
@@ -199,11 +211,11 @@ class StressTest {
   }
 
   tsc::ThreadSafeContainer<std::uint64_t> container_;
-  std::atomic<bool>        keep_writing_{true};
+  std::atomic<bool> keep_writing_{true};
   std::atomic<std::size_t> writer_exceptions_{0};
   std::atomic<std::size_t> reader_exceptions_{0};
   std::atomic<std::uint64_t> dequeue_order_{0};
-  std::vector<std::size_t>   writer_counts_;
+  std::vector<std::size_t> writer_counts_;
   std::vector<std::vector<std::pair<std::uint64_t, std::uint64_t>>>
       reader_buckets_;
 };
@@ -216,24 +228,31 @@ bool printAndJudge(const Results& r) {
             << "Writer exceptions:  " << r.writer_exceptions << "\n"
             << "Reader exceptions:  " << r.reader_exceptions << "\n"
             << "Final container sz: " << r.final_size << "\n"
-            << "No duplicates:      " << (r.no_duplicates ? "yes" : "NO") << "\n"
-            << "Per-producer FIFO:  " << (r.fifo_per_producer ? "yes" : "NO") << "\n";
+            << "No duplicates:      " << (r.no_duplicates ? "yes" : "NO")
+            << "\n"
+            << "Per-producer FIFO:  " << (r.fifo_per_producer ? "yes" : "NO")
+            << "\n";
 
   bool ok = true;
   if (r.items_written != r.items_read) {
-    std::cerr << "FAIL: items_written != items_read\n"; ok = false;
+    std::cerr << "FAIL: items_written != items_read\n";
+    ok = false;
   }
   if (r.final_size != 0) {
-    std::cerr << "FAIL: container not empty after drain\n"; ok = false;
+    std::cerr << "FAIL: container not empty after drain\n";
+    ok = false;
   }
   if (!r.no_duplicates) {
-    std::cerr << "FAIL: duplicate items observed\n"; ok = false;
+    std::cerr << "FAIL: duplicate items observed\n";
+    ok = false;
   }
   if (!r.fifo_per_producer) {
-    std::cerr << "FAIL: per-producer FIFO ordering violated\n"; ok = false;
+    std::cerr << "FAIL: per-producer FIFO ordering violated\n";
+    ok = false;
   }
   if (r.writer_exceptions != 0 || r.reader_exceptions != 0) {
-    std::cerr << "FAIL: unexpected exceptions in worker threads\n"; ok = false;
+    std::cerr << "FAIL: unexpected exceptions in worker threads\n";
+    ok = false;
   }
 
   std::cout << (ok ? "\nTest PASSED\n" : "\nTest FAILED\n");

@@ -63,11 +63,11 @@ namespace tsc {
  * @brief Status code returned by non-throwing variants of queue operations.
  */
 enum class QueueStatus {
-  Ok,      ///< Operation completed successfully.
-  Empty,   ///< try*-style remove found the queue empty.
-  Full,    ///< try*-style add found the queue full.
-  Timeout, ///< Timed wait expired before the operation could complete.
-  Closed,  ///< Operation refused because the container has been shut down.
+  Ok,       ///< Operation completed successfully.
+  Empty,    ///< try*-style remove found the queue empty.
+  Full,     ///< try*-style add found the queue full.
+  Timeout,  ///< Timed wait expired before the operation could complete.
+  Closed,   ///< Operation refused because the container has been shut down.
 };
 
 /**
@@ -176,11 +176,11 @@ class ThreadSafeContainer {
    *         Never throws (in contrast with waitAdd).
    */
   template <class Rep, class Period>
-  [[nodiscard]] QueueStatus tryAddFor(const T& item,
-                                      const std::chrono::duration<Rep, Period>& timeout);
+  [[nodiscard]] QueueStatus tryAddFor(
+      const T& item, const std::chrono::duration<Rep, Period>& timeout);
   template <class Rep, class Period>
-  [[nodiscard]] QueueStatus tryAddFor(T&& item,
-                                      const std::chrono::duration<Rep, Period>& timeout);
+  [[nodiscard]] QueueStatus tryAddFor(
+      T&& item, const std::chrono::duration<Rep, Period>& timeout);
 
   // --------------------------------------------------------------------------
   // Remove operations (consumers)
@@ -227,8 +227,8 @@ class ThreadSafeContainer {
    *         Closed if the container is shut down AND drained.
    */
   template <class Rep, class Period>
-  [[nodiscard]] QueueStatus tryRemoveFor(T& item,
-                                         const std::chrono::duration<Rep, Period>& timeout);
+  [[nodiscard]] QueueStatus tryRemoveFor(
+      T& item, const std::chrono::duration<Rep, Period>& timeout);
 
   // --------------------------------------------------------------------------
   // Lifecycle / bulk
@@ -270,8 +270,10 @@ class ThreadSafeContainer {
 
  private:
   // Predicates (must be called with mutex_ held).
-  bool can_push_locked() const { return queue_.size() < max_size_ || !is_active_; }
-  bool can_pop_locked()  const { return !queue_.empty() || !is_active_; }
+  bool can_push_locked() const {
+    return queue_.size() < max_size_ || !is_active_;
+  }
+  bool can_pop_locked() const { return !queue_.empty() || !is_active_; }
 
   // Notification policy: notify one waiter only when at least one is
   // actually parked on the relevant condition variable. The waiter counters
@@ -328,7 +330,8 @@ ThreadSafeContainer<T>::~ThreadSafeContainer() {
   clear();
 }
 
-// ---------- Add ---------------------------------------------------------------
+// ---------- Add
+// ---------------------------------------------------------------
 
 template <typename T>
 bool ThreadSafeContainer<T>::tryAdd(const T& item) {
@@ -424,8 +427,8 @@ QueueStatus ThreadSafeContainer<T>::tryAddFor(
   bool ready = false;
   {
     WaiterGuard g{producers_waiting_};
-    ready = not_full_.wait_for(lock, timeout,
-                               [this] { return can_push_locked(); });
+    ready =
+        not_full_.wait_for(lock, timeout, [this] { return can_push_locked(); });
   }
   if (!ready) {
     return QueueStatus::Full;
@@ -446,8 +449,8 @@ QueueStatus ThreadSafeContainer<T>::tryAddFor(
   bool ready = false;
   {
     WaiterGuard g{producers_waiting_};
-    ready = not_full_.wait_for(lock, timeout,
-                               [this] { return can_push_locked(); });
+    ready =
+        not_full_.wait_for(lock, timeout, [this] { return can_push_locked(); });
   }
   if (!ready) {
     return QueueStatus::Full;
@@ -460,7 +463,8 @@ QueueStatus ThreadSafeContainer<T>::tryAddFor(
   return QueueStatus::Ok;
 }
 
-// ---------- Remove (drain-on-close) -------------------------------------------
+// ---------- Remove (drain-on-close)
+// -------------------------------------------
 
 template <typename T>
 bool ThreadSafeContainer<T>::tryRemove(T& item) {
@@ -529,8 +533,8 @@ QueueStatus ThreadSafeContainer<T>::tryRemoveFor(
   bool ready = false;
   {
     WaiterGuard g{consumers_waiting_};
-    ready = not_empty_.wait_for(lock, timeout,
-                                [this] { return can_pop_locked(); });
+    ready =
+        not_empty_.wait_for(lock, timeout, [this] { return can_pop_locked(); });
   }
   if (!ready) {
     return QueueStatus::Timeout;
@@ -544,7 +548,8 @@ QueueStatus ThreadSafeContainer<T>::tryRemoveFor(
   return QueueStatus::Ok;
 }
 
-// ---------- Lifecycle / bulk --------------------------------------------------
+// ---------- Lifecycle / bulk
+// --------------------------------------------------
 
 template <typename T>
 void ThreadSafeContainer<T>::shutdown() {
@@ -579,11 +584,12 @@ std::vector<T> ThreadSafeContainer<T>::drain() {
   return out;
 }
 
-// ---------- Observers ---------------------------------------------------------
+// ---------- Observers
+// ---------------------------------------------------------
 
 template <typename T>
-typename ThreadSafeContainer<T>::size_type
-ThreadSafeContainer<T>::size() const {
+typename ThreadSafeContainer<T>::size_type ThreadSafeContainer<T>::size()
+    const {
   std::lock_guard<std::mutex> lock{mutex_};
   return queue_.size();
 }
