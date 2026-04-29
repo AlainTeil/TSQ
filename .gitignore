@@ -1,0 +1,44 @@
+# Build outputs
+build/
+build-*/
+out/
+cmake-build-*/
+
+# CMake artifacts
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CTestTestfile.cmake
+compile_commands.json
+Testing/
+_deps/
+
+# IDE / editor
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Compiler outputs
+*.o
+*.obj
+*.a
+*.so
+*.dylib
+*.exe
+
+# Sanitizer outputs
+*.tsan.*
+*.asan.*
+core
+core.*
+
+# clangd / clang-tidy cache
+.cache/
+
+# Coverage artifacts
+*.gcda
+*.gcno
+*.gcov
+coverage/

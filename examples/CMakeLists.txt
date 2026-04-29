@@ -1,0 +1,2 @@
+add_executable(producer_consumer producer_consumer.cpp)
+target_link_libraries(producer_consumer PRIVATE tsc::tsc tsc_project_options)

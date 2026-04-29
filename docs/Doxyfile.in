@@ -1,0 +1,42 @@
+# Minimal Doxyfile for the tsc library. Generated and refined manually rather
+# than via `doxygen -g` to keep the diff small and the configuration auditable.
+
+PROJECT_NAME           = "tsc"
+PROJECT_NUMBER         = @PROJECT_VERSION@
+PROJECT_BRIEF          = "Header-only thread-safe bounded FIFO container"
+
+OUTPUT_DIRECTORY       = @DOXYGEN_OUTPUT_DIR@
+GENERATE_HTML          = YES
+GENERATE_LATEX         = NO
+HTML_OUTPUT            = html
+USE_MDFILE_AS_MAINPAGE = @CMAKE_SOURCE_DIR@/README.md
+
+INPUT                  = @CMAKE_SOURCE_DIR@/lib/include \
+                         @CMAKE_SOURCE_DIR@/README.md
+FILE_PATTERNS          = *.hpp *.h *.md
+RECURSIVE              = YES
+EXCLUDE_PATTERNS       = */detail/*
+
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = NO
+EXTRACT_STATIC         = NO
+HIDE_UNDOC_MEMBERS     = NO
+INLINE_SOURCES         = NO
+SOURCE_BROWSER         = YES
+ALPHABETICAL_INDEX     = YES
+
+BUILTIN_STL_SUPPORT    = YES
+JAVADOC_AUTOBRIEF      = YES
+QT_AUTOBRIEF           = YES
+MARKDOWN_SUPPORT       = YES
+TAB_SIZE               = 4
+
+QUIET                  = YES
+WARNINGS               = YES
+WARN_IF_UNDOCUMENTED   = NO
+WARN_AS_ERROR          = NO
+
+GENERATE_TREEVIEW      = YES
+DISABLE_INDEX          = NO
+
+HAVE_DOT               = NO

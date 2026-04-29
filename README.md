@@ -1,227 +1,196 @@
-# ThreadSafeContainer - A C++17 Thread-Safe FIFO Queue
+# tsc — A C++17 Header-Only Thread-Safe Bounded FIFO
 
-A modern C++17 implementation of a thread-safe, bounded FIFO (First-In-First-Out) queue container demonstrating advanced concurrency patterns and synchronization mechanisms. This project showcases proper use of mutexes, condition variables, and atomic operations for coordinating multiple producer and consumer threads.
+`tsc::ThreadSafeContainer<T>` is a header-only, bounded, multi-producer /
+multi-consumer FIFO queue built on `std::mutex` and two
+`std::condition_variable`s. It supports non-blocking, blocking, and
+time-limited operations, and follows **drain-on-close** shutdown semantics so
+no in-flight item is silently lost.
 
-## Overview
+> Built and tested with C++20 (the library itself only requires C++17). All
+> public API names from the original 1.0 release are preserved; new
+> overloads (rvalue, emplace, optional-returning, timed, status-returning)
+> are additive.
 
-Based on the STL FIFO queue, this design provides thread-safety for multiple producer threads and multiple consumer threads through the utilization of a mutex and two condition variables. The first condition variable manages a full queue condition, while the second handles an empty queue condition.
-
-This is a proof-of-concept illustrating concurrency features provided by modern C++, organized as a professional header-only library with a comprehensive testing application.
+---
 
 ## Features
 
-The `tsc::ThreadSafeContainer` class provides:
+* `tryAdd` / `waitAdd` / `tryEmplaceAdd` / `emplaceAdd` — non-blocking and
+  blocking insert, including in-place construction and rvalue overloads.
+* `tryRemove` / `waitRemove` — non-blocking and blocking extract, with both
+  out-parameter (legacy) and `std::optional<T>`-returning overloads.
+* `tryAddFor` / `tryRemoveFor` — time-limited, non-throwing variants
+  returning a `tsc::QueueStatus`.
+* `shutdown()` + drain-on-close: producers refuse new work immediately;
+  consumers continue to drain everything that was already enqueued.
+* `clear()` / `drain()` — bulk removal (discard / collect).
+* `size()` / `empty()` / `full()` / `isActive()` / `capacity()` — observers.
 
-* **Template-based design** - Works with any copyable type
-* **FIFO ordering** - Elements are extracted in first-in-first-out order
-* **Bounded capacity** - Initialized with a maximum capacity to prevent unbounded growth
-* **Non-blocking operations**:
-  * `tryAdd()` - Attempts to insert an element, returns immediately with success/failure
-  * `tryRemove()` - Attempts to extract an element, returns immediately with success/failure
-* **Blocking operations**:
-  * `waitAdd()` - Inserts an element, blocks if queue is full until space is available
-  * `waitRemove()` - Extracts an element, blocks if queue is empty until an element is available
-* **Graceful shutdown**:
-  * `shutdown()` - Closes the queue and unblocks all waiting threads
-  * Future operations throw `ShutdownException` after shutdown
-  * `clear()` - Removes remaining elements after shutdown
-* **Query methods**:
-  * `size()` - Returns current number of elements
-  * `empty()` - Checks if container is empty
-  * `full()` - Checks if container is full
-  * `isActive()` - Checks if container is active (not shut down)
+### Requirements on `T`
 
-## Project Structure
+`T` must be a non-reference object type that is move-constructible and
+destructible. These are enforced by `static_assert` so misuse produces a
+clear diagnostic at the point of instantiation. The const-ref `tryAdd` /
+`waitAdd` overloads additionally require `T` to be copy-constructible.
 
-```
-.
-├── CMakeLists.txt             # Root build configuration
-├── README.md                  # This file
-├── .clang-format              # Code formatting rules
-├── lib/                       # Thread-safe container library
-│   ├── include/tsc/           # Public library headers
-│   │   ├── thread_safe_container.hpp  # Main container implementation
-│   │   └── random_generator.hpp       # Utility for random number generation
-│   ├── cmake/                 # CMake configuration files
-│   │   └── tscConfig.cmake.in
-│   └── CMakeLists.txt         # Library build configuration
-└── app/                       # Test application
-    ├── src/
-    │   └── main.cpp           # Integration test with 38 concurrent threads
-    └── CMakeLists.txt         # Application build configuration
-```
-
-## Building the Project
-
-### Prerequisites
-
-* CMake 3.20 or higher
-* C++17 compatible compiler (GCC 7+, Clang 5+, MSVC 2017+)
-* POSIX threads library
-
-### Quick Start
+## Build
 
 ```bash
-# Configure the build
 cmake -S . -B build
-
-# Build the project
-cmake --build build
-
-# Run the test application
-./build/app/tsc_test
-
-# Or run through CTest
-cd build && ctest --output-on-failure
+cmake --build build -j
+ctest --test-dir build --output-on-failure
 ```
 
-### Build Configurations
+CMake options:
 
-#### Debug Build
+| Option | Default | Meaning |
+|---|---|---|
+| `TSC_BUILD_APP` | `ON` | Build the `tsc_test` integration stress test. |
+| `TSC_BUILD_TESTS` | `ON` | Build Catch2 unit tests under `tests/`. |
+| `TSC_BUILD_EXAMPLES` | `ON` | Build minimal usage examples. |
+| `TSC_BUILD_BENCHMARKS` | `OFF` | Build microbenchmarks under `benchmarks/` (requires Google Benchmark; fetched automatically if absent). |
+| `BUILD_TESTING` | `ON` | Standard CTest gate. |
+| `TSC_WARNINGS_AS_ERRORS` | `OFF` | Treat compile warnings as errors. |
+| `ENABLE_ASAN` | `OFF` | AddressSanitizer + UBSan. |
+| `ENABLE_TSAN` | `OFF` | ThreadSanitizer (mutually exclusive with `ENABLE_ASAN`). |
+
+Catch2 v3 is used for unit tests; if not installed, it is fetched
+automatically via `FetchContent`.
+
+### Sanitizer builds
+
 ```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
-cmake --build build
+# AddressSanitizer + UBSan
+cmake -S . -B build-asan -DENABLE_ASAN=ON -DCMAKE_BUILD_TYPE=Debug
+cmake --build build-asan -j && ctest --test-dir build-asan --output-on-failure
+
+# ThreadSanitizer
+cmake -S . -B build-tsan -DENABLE_TSAN=ON -DCMAKE_BUILD_TYPE=Debug
+cmake --build build-tsan -j && ctest --test-dir build-tsan --output-on-failure
 ```
 
-#### Release Build
+> **Ubuntu 24.04 + TSan note:** newer kernels use 32-bit ASLR entropy that
+> conflicts with TSan's shadow-memory layout (`FATAL: ThreadSanitizer:
+> unexpected memory mapping`). When `ENABLE_TSAN=ON` on Linux, the build
+> system detects this automatically and wires `setarch -R` into
+> `CMAKE_CROSSCOMPILING_EMULATOR` so that both the build-time
+> `catch_discover_tests` step and `ctest` itself run through it
+> transparently. Look for `TSan + Linux: tests will be launched via ...
+> setarch -R` in the configure output. If `setarch` is not installed
+> (`util-linux` package), CMake will warn and you must wrap test
+> invocations manually. Note that `CMAKE_CROSSCOMPILING_EMULATOR` only
+> applies to `ctest` (and the build-time test-discovery step); if you
+> invoke a test binary directly, run it through `setarch -R` yourself,
+> e.g. `setarch -R ./build-tsan/tests/tsc_unit_tests`.
+
+## Minimal example
+
+```cpp
+#include <iostream>
+#include <thread>
+#include <tsc/thread_safe_container.hpp>
+
+int main() {
+  tsc::ThreadSafeContainer<int> q{8};
+
+  std::thread producer([&]{
+    for (int i = 0; i < 10; ++i) q.waitAdd(i);
+    q.shutdown();          // Drain-on-close: consumers still see all items.
+  });
+
+  std::thread consumer([&]{
+    while (auto v = q.waitRemove()) std::cout << *v << '\n';
+  });
+
+  producer.join();
+  consumer.join();
+}
+```
+
+See [`examples/producer_consumer.cpp`](examples/producer_consumer.cpp).
+
+## Shutdown semantics (drain-on-close)
+
+After `shutdown()`:
+
+* **Producers** (`tryAdd`, `waitAdd`, `tryEmplaceAdd`, `emplaceAdd`) throw
+  `tsc::ShutdownException`. The timed `tryAddFor` returns `QueueStatus::Closed`.
+* **Consumers** continue to extract items already in the queue. They only
+  signal "closed" once the queue is empty AND the container is inactive:
+  * `tryRemove(T&)` and `waitRemove(T&)` throw `ShutdownException` when
+    empty AND shut down.
+  * `tryRemove()` (optional) returns `std::nullopt` whenever the queue is
+    empty (no exception).
+  * `waitRemove()` (optional) returns `std::nullopt` once drained AND shut
+    down.
+  * `tryRemoveFor(T&, timeout)` returns `QueueStatus::Closed`.
+
+This prevents the silent data loss that the original 1.0 implementation
+suffered from when items were in flight at shutdown.
+
+## Lifetime / destructor contract
+
+The destructor calls `shutdown()` and then `clear()`. It does **not** join
+worker threads. The caller MUST ensure no thread is executing a member
+function on the container at the moment of destruction; otherwise the
+`std::mutex` / condition variables may be destroyed while in use.
+
+Recommended patterns:
+
+* Wrap the container in `std::shared_ptr` held by every worker thread.
+* Or, join all workers BEFORE the container goes out of scope.
+
+## Installation as a CMake package
+
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build
-```
-
-### Testing with Sanitizers
-
-This project includes support for ThreadSanitizer and AddressSanitizer to detect concurrency bugs and memory errors.
-
-#### ThreadSanitizer (detect data races)
-```bash
-cmake -S . -B build -DENABLE_TSAN=ON -DCMAKE_BUILD_TYPE=Debug
-cmake --build build
-./build/app/tsc_test
-```
-
-#### AddressSanitizer (detect memory errors)
-```bash
-cmake -S . -B build -DENABLE_ASAN=ON -DCMAKE_BUILD_TYPE=Debug
-cmake --build build
-./build/app/tsc_test
-```
-
-### Code Formatting
-
-```bash
-cmake --build build --target format
-```
-
-## Test Application
-
-The included test application ([`app/src/main.cpp`](app/src/main.cpp)) demonstrates a stress test with:
-
-* **19 writer threads** producing items at 100-200ms intervals
-* **19 reader threads** consuming items at 200-300ms intervals
-* **Queue capacity of 70** items
-* **3-second test duration**
-* **Coordinated shutdown** ensuring all produced items are consumed
-
-The test validates:
-- Thread-safe concurrent access
-- Proper blocking and notification behavior
-- Graceful shutdown without deadlocks
-- Complete consumption of all produced items
-
-## Implementation Details
-
-### Thread Safety Mechanisms
-
-* **Mutex** (`std::mutex`) - Protects all access to the internal queue
-* **Condition Variables** - Two condition variables coordinate blocking:
-  * `not_full_` - Signals when space becomes available for producers
-  * `not_empty_` - Signals when items become available for consumers
-* **Atomic Operations** - Test application uses atomic flags for coordinated shutdown
-
-### Performance Optimizations
-
-* Uses `notify_one()` instead of `notify_all()` to avoid thundering herd
-* Thread-local random number generators to avoid lock contention
-* Efficient blocking with condition variables (no busy-waiting)
-* Header-only library for potential inlining optimizations
-
-### Exception Safety
-
-* `ShutdownException` (derived from `std::runtime_error`) thrown when operations attempted after shutdown
-* RAII compliance - destructor calls `shutdown()` and `clear()` automatically
-* Exception-safe operation collection in test harness using `std::future`
-
-## Installing the Library
-
-### System-wide Installation
-```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build
+cmake --build build -j
 sudo cmake --install build
 ```
 
-### User Installation
-```bash
-cmake -S . -B build -DCMAKE_INSTALL_PREFIX=$HOME/.local
-cmake --build build
-cmake --install build
-```
-
-### Using the Installed Library
-
-After installation, use in your `CMakeLists.txt`:
+In a downstream project:
 
 ```cmake
-find_package(tsc REQUIRED)
-target_link_libraries(your_target PRIVATE tsc::tsc)
+find_package(tsc 1.1 REQUIRED)
+target_link_libraries(my_target PRIVATE tsc::tsc)
+```
+
+## Project layout
+
+```
+.
+├── CMakeLists.txt
+├── lib/
+│   ├── CMakeLists.txt
+│   ├── cmake/tscConfig.cmake.in
+│   └── include/tsc/
+│       ├── thread_safe_container.hpp
+│       └── detail/random_generator.hpp   # internal utility
+├── app/                        # integration stress test (`tsc_test`)
+├── tests/                      # Catch2 unit tests (incl. F1/F2 regressions)
+├── examples/                   # minimal producer/consumer demo
+├── benchmarks/                 # Google Benchmark microbenchmarks (opt-in)
+└── docs/                       # Doxygen configuration
+```
+
+## Benchmarks
+
+```bash
+cmake -S . -B build-bench -DCMAKE_BUILD_TYPE=Release -DTSC_BUILD_BENCHMARKS=ON
+cmake --build build-bench -j
+./build-bench/benchmarks/tsc_benchmarks --benchmark_min_time=1s
+```
+
+## API documentation
+
+If [Doxygen](https://www.doxygen.nl/) is installed, a `docs` target is
+registered automatically:
+
+```bash
+cmake --build build --target docs
+xdg-open build/docs/html/index.html
 ```
 
 ## License
 
-This is a proof-of-concept project for educational purposes demonstrating C++17 concurrency features.
-
-## Contributing
-
-This project follows Google C++ Style Guide (see [`.clang-format`](.clang-format)). Run `cmake --build build --target format` before submitting changes.
-
-## Acknowledgments
-
-This implementation demonstrates modern C++17 concurrency patterns including:
-- `std::mutex` and `std::lock_guard`/`std::unique_lock`
-- `std::condition_variable` for efficient thread coordination
-- `std::atomic` with memory ordering semantics
-- `std::async` and `std::future` for async task management
-- RAII and exception-safe resource management
-
-### Known Issues
-
-#### ThreadSanitizer on Ubuntu 24.04
-
-ThreadSanitizer has compatibility issues with Ubuntu 24.04 due to kernel memory mapping changes. If you encounter:
-
-```
-FATAL: ThreadSanitizer: unexpected memory mapping
-```
-
-**Workaround Options:**
-
-1. **Use AddressSanitizer instead** (works on Ubuntu 24.04):
-   ```bash
-   cmake -S . -B build -DENABLE_ASAN=ON -DCMAKE_BUILD_TYPE=Debug
-   cmake --build build
-   ./build/app/tsc_test
-   ```
-
-2. **Temporarily disable ASLR**:
-   ```bash
-   echo 0 | sudo tee /proc/sys/kernel/randomize_va_space
-   ./build/app/tsc_test
-   echo 2 | sudo tee /proc/sys/kernel/randomize_va_space  # Re-enable after
-   ```
-
-3. **Upgrade to GCC 13+**:
-   ```bash
-   sudo apt-get install gcc-13 g++-13
-   CC=gcc-13 CXX=g++-13 cmake -S . -B build -DENABLE_TSAN=ON
-   ```
+MIT — see [`LICENSE`](LICENSE).

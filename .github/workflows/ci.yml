@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: ${{ matrix.os }} / ${{ matrix.compiler }} / ${{ matrix.config }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04]
+        compiler: [gcc, clang]
+        config:
+          - { name: "Release",       cmake_args: "-DCMAKE_BUILD_TYPE=Release -DTSC_WARNINGS_AS_ERRORS=ON" }
+          - { name: "Debug",         cmake_args: "-DCMAKE_BUILD_TYPE=Debug   -DTSC_WARNINGS_AS_ERRORS=ON" }
+          - { name: "ASan+UBSan",    cmake_args: "-DCMAKE_BUILD_TYPE=Debug   -DENABLE_ASAN=ON -DTSC_WARNINGS_AS_ERRORS=ON" }
+          - { name: "TSan",          cmake_args: "-DCMAKE_BUILD_TYPE=Debug   -DENABLE_TSAN=ON -DTSC_WARNINGS_AS_ERRORS=ON" }
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain (gcc)
+        if: matrix.compiler == 'gcc'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++ cmake ninja-build
+          echo "CC=gcc" >> $GITHUB_ENV
+          echo "CXX=g++" >> $GITHUB_ENV
+
+      - name: Install toolchain (clang)
+        if: matrix.compiler == 'clang'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build
+          echo "CC=clang" >> $GITHUB_ENV
+          echo "CXX=clang++" >> $GITHUB_ENV
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja ${{ matrix.config.cmake_args }}
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Test
+        # The CMake script wires `setarch -R` automatically into
+        # CMAKE_CROSSCOMPILING_EMULATOR when ENABLE_TSAN=ON on Linux, so a
+        # plain `ctest` invocation Just Works for every configuration.
+        run: ctest --test-dir build --output-on-failure
+
+  format-check:
+    name: clang-format check
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install clang-format
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-format
+      - name: Run clang-format --dry-run
+        run: |
+          set -e
+          mapfile -d '' files < <(find lib/include app/src tests examples \
+              -type f \( -name '*.hpp' -o -name '*.cpp' -o -name '*.h' \) -print0)
+          clang-format --dry-run --Werror "${files[@]}"
