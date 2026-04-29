@@ -29,7 +29,7 @@ jobs:
           - { name: "ASan+UBSan",    cmake_args: "-DCMAKE_BUILD_TYPE=Debug   -DENABLE_ASAN=ON -DTSC_WARNINGS_AS_ERRORS=ON" }
           - { name: "TSan",          cmake_args: "-DCMAKE_BUILD_TYPE=Debug   -DENABLE_TSAN=ON -DTSC_WARNINGS_AS_ERRORS=ON" }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install toolchain (gcc)
         if: matrix.compiler == 'gcc'
@@ -63,7 +63,7 @@ jobs:
     name: clang-format check
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install clang-format
         run: |
           sudo apt-get update
